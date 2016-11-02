@@ -45,7 +45,6 @@ class Sms(object):
         self.text = text
         self.smsc = smsc
 
-
 class ReceivedSms(Sms):
     """ An SMS message that has been received (MT) """
     
@@ -54,6 +53,7 @@ class ReceivedSms(Sms):
         self._gsmModem = weakref.proxy(gsmModem)
         self.status = status
         self.time = time
+        self.iccid = gsmModem.iccid   # added by gaofeng for adding iccid to a sms
         
     def reply(self, message):
         """ Convenience method that sends a reply SMS to the sender of this message """
@@ -492,7 +492,7 @@ class GsmModem(SerialComms):
 
     @property
     def iccid(self):
-        """ :return: The iccid (Integrate Circuit Card Identity) of the SIM card. ICCID为IC卡的唯一识别号码，共有20位数字组成,前六位运营商代码:中国移动的为:898600;898602 ，中国联通的为:898601，中国电信898603 """
+        """ :return: The iccid (Integrate Circuit Card Identity) of the SIM card. """
         return self.write('AT+CCID')[0]
     
     @property
