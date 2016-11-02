@@ -4,11 +4,11 @@ Demo: handle incoming SMS messages by replying to them
 Simple demo app that listens for incoming SMS messages, displays the sender's number
 and the messages, then replies to the SMS by saying "thank you"
 """
-
 from __future__ import print_function
 import logging
 import pymysql.cursors
 import time
+
 from gsmmodem.modem import GsmModem
 
 PORTS =('COM5','COM6','COM8','COM9')
@@ -24,15 +24,15 @@ connection= pymysql.connect(host='114.55.224.65',
                             charset='utf8mb4',
                             cursorclass=pymysql.cursors.DictCursor)
 
-sql = '''INSERT INTO `sms` (`PhoneNo`,`OrgAddr`,`UserData`,`SmsTime`,`UpdateTime`) VALUES (%s, %s, %s, %s, %s)
-        ON DUPLICATE KEY UPDATE PhoneNo=VALUES(PhoneNo),OrgAddr=VALUES(OrgAddr),UserData=VALUES(UserData),SmsTime=VALUES(SmsTime),UpdateTime=VALUES(UpdateTime)'''
+sql = '''INSERT INTO `sms` (`iccid`,`OrgAddr`,`UserData`,`SmsTime`,`UpdateTime`) VALUES (%s, %s, %s, %s, %s)
+        ON DUPLICATE KEY UPDATE iccid=VALUES(iccid),OrgAddr=VALUES(OrgAddr),UserData=VALUES(UserData),SmsTime=VALUES(SmsTime),UpdateTime=VALUES(UpdateTime)'''
 
 def handleSms(sms):
-    print(u'== SMS message received ==\nFrom: {0}\nTime: {1}\nMessage:\n{2}\nSMSC: {3}\n'.format(sms.number, sms.time, sms.text,sms.smsc))
+    print(u'== SMS message received ==\nFrom: {0}\nTime: {1}\nMessage:\n{2}\nSMSC: {3}\nICCID: {4}\n'.format(sms.number, sms.time, sms.text,sms.smsc,sms.iccid))
     # Create a new record
     nowtime = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
     with connection.cursor() as cursor:
-        cursor.execute(sql,(sms.number,sms.number,sms.text,sms.time,nowtime))
+        cursor.execute(sql,(sms.iccid,sms.number,sms.text,sms.time,nowtime))
         connection.commit()
 
 def main():
@@ -44,7 +44,6 @@ def main():
         modem[i].smsTextMode = False
         modem[i].connect(PIN)
         print(u' {0} is opened\n'.format(PORTS[i]))
-
     print('Waiting for SMS message...')
 
     try:
