@@ -489,6 +489,11 @@ class GsmModem(SerialComms):
     def imsi(self):
         """ :return: The IMSI (International Mobile Subscriber Identity) of the SIM card. The PIN may need to be entered before reading the IMSI """
         return self.write('AT+CIMI')[0]
+
+    @property
+    def iccid(self):
+        """ :return: The iccid (Integrate Circuit Card Identity) of the SIM card. ICCID为IC卡的唯一识别号码，共有20位数字组成,前六位运营商代码:中国移动的为:898600;898602 ，中国联通的为:898601，中国电信898603 """
+        return self.write('AT+CCID')[0]
     
     @property
     def networkName(self):
