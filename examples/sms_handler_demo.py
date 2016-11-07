@@ -11,7 +11,7 @@ import time
 
 from gsmmodem.modem import GsmModem
 
-PORTS =('COM5','COM6','COM8','COM9')
+PORTS =('COM3','COM4','COM6','COM7','COM8','COM9','COM10','COM11','COM12','COM13','COM14','COM15','COM16','COM17','COM18')
 modem = []
 
 BAUDRATE = 115200
@@ -28,7 +28,7 @@ sql = '''INSERT INTO `sms` (`iccid`,`OrgAddr`,`UserData`,`SmsTime`,`UpdateTime`)
         ON DUPLICATE KEY UPDATE iccid=VALUES(iccid),OrgAddr=VALUES(OrgAddr),UserData=VALUES(UserData),SmsTime=VALUES(SmsTime),UpdateTime=VALUES(UpdateTime)'''
 
 def handleSms(sms):
-    print(u'== SMS message received ==\nFrom: {0}\nTime: {1}\nMessage:\n{2}\nSMSC: {3}\nICCID: {4}\n'.format(sms.number, sms.time, sms.text,sms.smsc,sms.iccid))
+    print(u'== SMS message received ==\nFrom: {0} SMSC: {1} Sim ICCID: {2}\nTime: {3}\nMessage:\n{4}\n'.format(sms.number,sms.smsc,sms.iccid, sms.time, sms.text))
     # Create a new record
     nowtime = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
     with connection.cursor() as cursor:
@@ -38,21 +38,45 @@ def handleSms(sms):
 def main():
     print('Initializing modem...')
     # Uncomment the following line to see what the modem is doing:
-    logging.basicConfig(format='%(levelname)s: %(message)s', level=logging.DEBUG)
+  #  logging.basicConfig(format='%(levelname)s: %(message)s', level=logging.DEBUG)
+    logging.basicConfig(
+        level=logging.DEBUG,
+        format='[%(asctime)s][%(process)d:%(thread)d][%(levelname)s] %(message)s',
+        filename="main.log",
+        filemode='a+')
+    _logger = logging.getLogger('another.log')
+    fh = logging.FileHandler('another.log')
+    fh.setLevel(logging.DEBUG)
+    formatter1 = logging.Formatter('[%(asctime)s][%(process)d:%(thread)d][%(levelname)s] %(message)s')
+    fh.setFormatter(formatter1)
+    _logger.addHandler(fh)
+
+    #################################################################################################
+    console = logging.StreamHandler()
+    console.setLevel(logging.INFO)
+    formatter = logging.Formatter('%(name)-12s: %(levelname)-8s %(message)s')
+    console.setFormatter(formatter)
+    logging.getLogger('').addHandler(console)
+    #################################################################################################
+    _logger.debug('aaa')
+    _logger.debug('bbb')
+
+
+
+
     for i in range(len(PORTS)):
         modem.append(GsmModem(PORTS[i], BAUDRATE, smsReceivedCallbackFunc=handleSms))
         modem[i].smsTextMode = False
         modem[i].connect(PIN)
         print(u' {0} is opened\n'.format(PORTS[i]))
-    print('Waiting for SMS message...')
-
+        print('Waiting for SMS message...')
     try:
         for i in range(len(PORTS)):
             modem[i].rxThread.join(2**31) # Specify a (huge) timeout so that it essentially blocks indefinitely, but still receives CTRL+C interrupt signal
     finally:
         for i in range(len(PORTS)):
             modem[i].close();
-        connection.close()
+    connection.close()
 
 if __name__ == '__main__':
     main()
