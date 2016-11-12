@@ -11,7 +11,11 @@ import time
 
 from gsmmodem.modem import GsmModem
 
-PORTS =('COM3','COM4','COM6','COM7','COM8','COM9','COM10','COM11','COM12','COM13','COM14','COM15','COM16','COM17','COM18')
+#PORTS =('COM36','COM37','COM38','COM39','COM40','COM41','COM42','COM43','COM44','COM45','COM46','COM47','COM48','COM49','COM50','COM51','COM262','COM263','COM264','COM265','COM286','COM287',
+#'COM288','COM289','COM290','COM291','COM292','COM293','COM294','COM295','COM296','COM297','COM298','COM299','COM300','COM302','COM303','COM304','COM305','COM306','COM307','COM308','COM309')
+
+PORTS =('COM36','COM37','COM38')
+
 modem = []
 
 BAUDRATE = 115200
@@ -59,11 +63,6 @@ def main():
     logging.getLogger('').addHandler(console)
     #################################################################################################
     _logger.debug('aaa')
-    _logger.debug('bbb')
-
-
-
-
     for i in range(len(PORTS)):
         modem.append(GsmModem(PORTS[i], BAUDRATE, smsReceivedCallbackFunc=handleSms))
         modem[i].smsTextMode = False
