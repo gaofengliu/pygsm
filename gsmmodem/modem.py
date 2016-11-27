@@ -45,15 +45,17 @@ class Sms(object):
         self.text = text
         self.smsc = smsc
 
+
 class ReceivedSms(Sms):
     """ An SMS message that has been received (MT) """
     
-    def __init__(self, gsmModem, status, number, time, text, smsc=None):
+    def __init__(self, gsmModem, status, number, time, text, smsc=None, iccid=None):
         super(ReceivedSms, self).__init__(number, text, smsc)
         self._gsmModem = weakref.proxy(gsmModem)
         self.status = status
         self.time = time
-        self.iccid = gsmModem.iccid   # added by gaofeng for adding iccid to a sms
+        self.iccid = iccid   # added by gaofeng for adding iccid to a sms
+
         
     def reply(self, message):
         """ Convenience method that sends a reply SMS to the sender of this message """
@@ -160,6 +162,7 @@ class GsmModem(SerialComms):
         self._smsMemReadDelete = None # Preferred message storage memory for reads/deletes (<mem1> parameter used for +CPMS)
         self._smsMemWrite = None # Preferred message storage memory for writes (<mem2> parameter used for +CPMS)
         self._smsReadSupported = True # Whether or not reading SMS messages is supported via AT commands
+        self._iccid=None  # add a iccid member varable to store iccid number of sim.  added by lgf
 
     def connect(self, pin=None):
         """ Opens the port and initializes the modem and SIM card
@@ -288,6 +291,13 @@ class GsmModem(SerialComms):
 
         # General meta-information setup
         self.write('AT+COPS=3,0', parseError=False) # Use long alphanumeric name format
+
+        # check out the iccid and icimi number, by lgf
+        try:
+             self.log.info('The iccid = {0}  and the imsi = {1}\n'.format(self.write('AT+CCID')[0],self.write('AT+CIMI')[0],))
+        except CommandError:
+            self.log.info(' The iccid and imsi can not be read.')
+
                 
         # SMS setup
         self.write('AT+CMGF={0}'.format(1 if self._smsTextMode else 0)) # Switch to text or PDU mode for SMS messages
@@ -794,7 +804,8 @@ class GsmModem(SerialComms):
                 raise ValueError('Invalid status value: {0}'.format(status))
             result = self.write('AT+CMGL="{0}"'.format(statusStr))
             msgLines = []
-            msgIndex = msgStatus = number = msgTime = None
+            #msgIndex = msgStatus = number = msgTime = None   # the ori code
+            msgIndex = msgStatus = number = msgTime = msgIccid = None    # modify by lgf
             for line in result:
                 cmglMatch = cmglRegex.match(line)                
                 if cmglMatch:
@@ -802,7 +813,8 @@ class GsmModem(SerialComms):
                     if msgIndex != None and len(msgLines) > 0:
                         msgText = '\n'.join(msgLines)
                         msgLines = []
-                        messages.append(ReceivedSms(self, Sms.TEXT_MODE_STATUS_MAP[msgStatus], number, parseTextModeTimeStr(msgTime), msgText))
+                        msgIccid =self.iccid
+                        messages.append(ReceivedSms(self, Sms.TEXT_MODE_STATUS_MAP[msgStatus], number, parseTextModeTimeStr(msgTime), msgText,msgIccid))
                         delMessages.add(int(msgIndex))
                     msgIndex, msgStatus, number, msgTime = cmglMatch.groups()
                     msgLines = []
@@ -812,7 +824,9 @@ class GsmModem(SerialComms):
             if msgIndex != None and len(msgLines) > 0:
                 msgText = '\n'.join(msgLines)
                 msgLines = []
-                messages.append(ReceivedSms(self, Sms.TEXT_MODE_STATUS_MAP[msgStatus], number, parseTextModeTimeStr(msgTime), msgText))
+                msgIccid = self.iccid  # added by lgf
+                #messages.append(ReceivedSms(self, Sms.TEXT_MODE_STATUS_MAP[msgStatus], number, parseTextModeTimeStr(msgTime), msgText)
+                messages.append(ReceivedSms(self, Sms.TEXT_MODE_STATUS_MAP[msgStatus], number, parseTextModeTimeStr(msgTime), msgText,msgIccid))   #modified by lgf
                 delMessages.add(int(msgIndex))
         else:
             cmglRegex = re.compile(r'^\+CMGL:\s*(\d+),\s*(\d+),.*$')
@@ -828,11 +842,13 @@ class GsmModem(SerialComms):
                 else:
                     try:
                         smsDict = decodeSmsPdu(line)
+                        msgIccid = self.iccid  # added by lgf
                     except EncodingError:
                         self.log.debug('Discarding line from +CMGL response: %s', line)
                     else:
                         if smsDict['type'] == 'SMS-DELIVER':
-                            sms = ReceivedSms(self, int(msgStat), smsDict['number'], smsDict['time'], smsDict['text'], smsDict['smsc'])
+                           # sms = ReceivedSms(self, int(msgStat), smsDict['number'], smsDict['time'], smsDict['text'], smsDict['smsc'])
+                            sms = ReceivedSms(self, int(msgStat), smsDict['number'], smsDict['time'], smsDict['text'], smsDict['smsc'],msgIccid ) #modified by lgf with adding a iccid to sms
                         elif smsDict['type'] == 'SMS-STATUS-REPORT':
                             sms = StatusReport(self, int(msgStat), smsDict['reference'], smsDict['number'], smsDict['time'], smsDict['discharge'], smsDict['status'])
                         else:
@@ -993,7 +1009,7 @@ class GsmModem(SerialComms):
         """
         return self._handleCallEnded(regexMatch, callId, True)
 
-    def _handleSmsReceived(self, notificationLine):
+    def _handleSmsReceived(self, notificationLine):   # this method is to handle sms and callback handlesms in sms_handler_demo.py
         """ Handler for "new SMS" unsolicited notification line """
         self.log.debug('SMS message received')
         cmtiMatch = self.CMTI_REGEX.match(notificationLine)
@@ -1047,7 +1063,10 @@ class GsmModem(SerialComms):
             if cmgrMatch:
                 msgStatus, number, msgTime = cmgrMatch.groups()
                 msgText = '\n'.join(msgData[1:-1])
-                return ReceivedSms(self, Sms.TEXT_MODE_STATUS_MAP[msgStatus], number, parseTextModeTimeStr(msgTime), msgText)
+
+                #return ReceivedSms(self, Sms.TEXT_MODE_STATUS_MAP[msgStatus], number, parseTextModeTimeStr(msgTime), msgText)
+                msgIccid=self.iccid # added by lgf
+                return ReceivedSms(self, Sms.TEXT_MODE_STATUS_MAP[msgStatus], number, parseTextModeTimeStr(msgTime), msgText, msgIccid) #modified by lgf with adding a iccid to sms
             else:
                 # Try parsing status report
                 cmgrMatch = self.CMGR_SM_REPORT_REGEXT_TEXT.match(msgData[0])
@@ -1072,8 +1091,9 @@ class GsmModem(SerialComms):
                 stat = Sms.STATUS_RECEIVED_UNREAD
             pdu = msgData[1]
             smsDict = decodeSmsPdu(pdu)
+            smsIccid=self.iccid
             if smsDict['type'] == 'SMS-DELIVER':
-                return ReceivedSms(self, int(stat), smsDict['number'], smsDict['time'], smsDict['text'], smsDict['smsc'])
+                return ReceivedSms(self, int(stat), smsDict['number'], smsDict['time'], smsDict['text'], smsDict['smsc'], smsIccid) #modified by lgf with adding a iccid to sms
             elif smsDict['type'] == 'SMS-STATUS-REPORT':
                 return StatusReport(self, int(stat), smsDict['reference'], smsDict['number'], smsDict['time'], smsDict['discharge'], smsDict['status'])
             else:
