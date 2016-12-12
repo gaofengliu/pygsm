@@ -87,6 +87,7 @@ def main():
 #  open all modems
     IDopened = -1
     PORTSNOTOPEND =[]
+    PORTSOPENED=[]
     for i in range(len(PORTS)):
         modem.append(GsmModem(PORTS[i], BAUDRATE, smsReceivedCallbackFunc=handleSms))
         modem[i].smsTextMode = False
@@ -94,17 +95,22 @@ def main():
             modem[i].connect(PIN)
             IDopened +=1
             print(u' {0} is opened\n'.format(PORTS[i]))
-
+            PORTSOPENED.append(PORTS[i])
         except:
             PORTSNOTOPEND.append(PORTS[i])
             print(u' {0} can not be opened\n'.format(PORTS[i]))
             pass
     if IDopened>-1:
-        print(u'{} Ports have not been opened!'.format(len(PORTSNOTOPEND)))
-        for p in PORTSNOTOPEND:
-            print(p)
+        if len(PORTSNOTOPEND)>0:
+            print(u'{} Ports have not been opened!'.format(len(PORTSNOTOPEND)))
+            for p in PORTSNOTOPEND:
+               print(p)
+        print('='*40)
         try:
-            print('Waiting for SMS message...')
+            print(u'{} Ports have  been opened!'.format(len(PORTSOPENED)))
+            for p in PORTSOPENED:
+                print(p)
+            print('are waiting for SMS message...')
             modem[IDopened].rxThread.join(2**31) # Specify a (huge) timeout so that it essentially blocks indefinitely, but still receives CTRL+C interrupt signal
 
         finally:
